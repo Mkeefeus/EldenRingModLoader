@@ -15,11 +15,13 @@ void ModLoader::ReadConfigFile()
     {
         m_loadDelay = std::stoi(m_ini["modloader"].get("load_delay"));
         m_showTerminal = std::stoi(m_ini["modloader"].get("show_terminal")) != 0;
+        m_modFolder = m_ini["modloader"].get("mod_folder");
     }
     else
     {
 		m_ini["modloader"]["load_delay"] = std::to_string(m_loadDelay);
 		m_ini["modloader"]["show_terminal"] = std::to_string(m_showTerminal);
+        m_ini["modloader"]["mod_folder"] = m_modFolder;
         config.write(m_ini, true);
     }
 
