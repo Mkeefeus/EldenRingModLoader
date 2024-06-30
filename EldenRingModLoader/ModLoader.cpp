@@ -3,25 +3,28 @@
 void ModLoader::LoadMods()
 {
     ReadConfigFile();
+    StartLogger();
     LoadDllMods();
     OnLoadingDone();
 }
 
 void ModLoader::ReadConfigFile()
 {
-	INIFile config = INIFile("mod_loader_config.ini");
+    INIFile config = INIFile("mod_loader_config.ini");
 
     if (config.read(m_ini))
     {
         m_loadDelay = std::stoi(m_ini["modloader"].get("load_delay"));
         m_showTerminal = std::stoi(m_ini["modloader"].get("show_terminal")) != 0;
         m_modFolder = m_ini["modloader"].get("mod_folder");
+        m_logPath = m_ini["modloader"].get("log_path");
     }
     else
     {
-		m_ini["modloader"]["load_delay"] = std::to_string(m_loadDelay);
-		m_ini["modloader"]["show_terminal"] = std::to_string(m_showTerminal);
+        m_ini["modloader"]["load_delay"] = std::to_string(m_loadDelay);
+        m_ini["modloader"]["show_terminal"] = std::to_string(m_showTerminal);
         m_ini["modloader"]["mod_folder"] = m_modFolder;
+        m_ini["modloader"]["log_path"] = m_logPath;
         config.write(m_ini, true);
     }
 
@@ -29,19 +32,24 @@ void ModLoader::ReadConfigFile()
     {
         OpenTerminal();
     }
+}
 
-    m_logger.Log("Load delay: %i", m_loadDelay);
-    m_logger.Log("Show terminal: %i", m_showTerminal);
+void ModLoader::StartLogger()
+{
+    m_logger = std::make_unique<Logger>("Mod Loader", m_logPath);
+    m_logger->Log("Load delay: %i", m_loadDelay);
+    m_logger->Log("Show terminal: %i", m_showTerminal);
+    m_logger->Log("Mod folder: %s", m_modFolder.c_str());
 }
 
 std::vector<std::pair<int64_t, std::string>> ModLoader::FindModsAndReadLoadOrders()
 {
-    m_logger.Log("Finding mods...");
+    m_logger->Log("Finding mods...");
 
     std::vector<std::pair<int64_t, std::string>> dllMods;
-	constexpr int automaticLoadOrder = -1;
-	fs::create_directories(m_modFolder);
-	m_logger.Log("Load orders:");
+    constexpr int automaticLoadOrder = -1;
+    fs::create_directories(m_modFolder);
+    m_logger->Log("Load orders:");
 
     for (auto file : fs::recursive_directory_iterator(m_modFolder))
     {
@@ -64,28 +72,30 @@ std::vector<std::pair<int64_t, std::string>> ModLoader::FindModsAndReadLoadOrder
                 }
 
                 std::string overrideLoadOrder = m_ini["loadorder"].get(modName);
-                if (overrideLoadOrder == "") {
-					overrideLoadOrder = m_ini["loadorder"].get(modName + ".dll");
+                if (overrideLoadOrder == "")
+                {
+                    overrideLoadOrder = m_ini["loadorder"].get(modName + ".dll");
                 }
-                if (overrideLoadOrder != "") {
-					loadOrder = std::stoi(overrideLoadOrder);
+                if (overrideLoadOrder != "")
+                {
+                    loadOrder = std::stoi(overrideLoadOrder);
                 }
 
-				m_logger.Log("%s = %i", modName.c_str(), loadOrder);
+                m_logger->Log("%s = %i", modName.c_str(), loadOrder);
                 dllMods.push_back(std::make_pair(loadOrder, modName + ".dll"));
             }
         }
     }
 
-    for (auto& mod : dllMods)
+    for (auto &mod : dllMods)
     {
         if (mod.first == automaticLoadOrder)
         {
             mod.first = std::max_element(dllMods.begin(), dllMods.end())->first + 1;
-			if (mod.first == 0)
-			{
-				mod.first = 1;
-			}
+            if (mod.first == 0)
+            {
+                mod.first = 1;
+            }
         }
     }
 
@@ -97,26 +107,26 @@ void ModLoader::LoadDllMods()
 {
     auto dllMods = FindModsAndReadLoadOrders();
 
-	m_logger.Log("Loading .dll mods...");
+    m_logger->Log("Loading .dll mods...");
 
-	size_t modCount = 0;
-	bool hasSlept = false;
-	constexpr int loadInstantly = 0;
+    size_t modCount = 0;
+    bool hasSlept = false;
+    constexpr int loadInstantly = 0;
     for (size_t i = 0; i < dllMods.size(); i++)
     {
         int64_t loadOrder = dllMods[i].first;
         std::string dllName = dllMods[i].second;
 
-		if (loadOrder != loadInstantly && hasSlept == false)
-		{
-			Sleep(m_loadDelay);
-			hasSlept = true;
-		}
+        if (loadOrder != loadInstantly && hasSlept == false)
+        {
+            Sleep(m_loadDelay);
+            hasSlept = true;
+        }
 
-        m_logger.Log("Loading %s...", dllName.c_str());
+        m_logger->Log("Loading %s...", dllName.c_str());
         if (LoadLibraryA(std::string(m_modFolder + "\\" + dllName).c_str()))
         {
-			bool nextModHasSameLoadOrder = i != dllMods.size() - 1 && dllMods[i + 1].first == loadOrder;
+            bool nextModHasSameLoadOrder = i != dllMods.size() - 1 && dllMods[i + 1].first == loadOrder;
             if (nextModHasSameLoadOrder == false)
             {
                 Sleep(1000);
@@ -125,23 +135,23 @@ void ModLoader::LoadDllMods()
         }
         else
         {
-            m_logger.Log("Failed to load %s", dllName.c_str());
+            m_logger->Log("Failed to load %s", dllName.c_str());
             MessageBox(NULL, std::string("Failed to load " + dllName).c_str(), "Elden Mod Loader", MB_OK | MB_ICONINFORMATION | MB_SYSTEMMODAL);
         }
     }
-    m_logger.Log("Loaded %i .dll mods", modCount);
+    m_logger->Log("Loaded %i .dll mods", modCount);
 }
 
 void ModLoader::OpenTerminal()
 {
     if (AllocConsole())
     {
-        freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
+        freopen_s((FILE **)stdout, "CONOUT$", "w", stdout);
         SetWindowText(GetConsoleWindow(), "Elden Mod Loader");
     }
 }
 
 void ModLoader::OnLoadingDone()
 {
-    m_logger.Close();
+    m_logger->Close();
 }

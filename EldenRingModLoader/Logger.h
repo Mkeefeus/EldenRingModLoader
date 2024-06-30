@@ -7,14 +7,18 @@
 class Logger
 {
 public:
-	Logger(const char* prefix)
+	Logger(const char* prefix, std::string fileName)
 	{
 		m_printPrefix = prefix;
 
 		FILE* logFile = LogFile(nullptr);
 		if (logFile == nullptr)
 		{
-			fopen_s(&logFile, "mod_loader_log.txt", "w");
+			if (fileName.empty())
+			{
+				fileName = "mod_loader_log.txt";
+			}
+			fopen_s(&logFile, fileName.c_str(), "w");
 			LogFile(logFile);
 		}
 	}
