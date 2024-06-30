@@ -10,21 +10,22 @@ void ModLoader::LoadMods()
 
 void ModLoader::ReadConfigFile()
 {
-    INIFile config = INIFile("mod_loader_config.ini");
+    // INIFile config = INIFile("mod_loader_config.ini");
+    INIFile config = INIFile(m_configPath);
 
     if (config.read(m_ini))
     {
         m_loadDelay = std::stoi(m_ini["modloader"].get("load_delay"));
         m_showTerminal = std::stoi(m_ini["modloader"].get("show_terminal")) != 0;
-        m_modFolder = m_ini["modloader"].get("mod_folder");
-        m_logPath = m_ini["modloader"].get("log_path");
+        // m_modFolder = m_ini["modloader"].get("mod_folder");
+        // m_logPath = m_ini["modloader"].get("log_path");
     }
     else
     {
         m_ini["modloader"]["load_delay"] = std::to_string(m_loadDelay);
         m_ini["modloader"]["show_terminal"] = std::to_string(m_showTerminal);
-        m_ini["modloader"]["mod_folder"] = m_modFolder;
-        m_ini["modloader"]["log_path"] = m_logPath;
+        // m_ini["modloader"]["mod_folder"] = m_modFolder;
+        // m_ini["modloader"]["log_path"] = m_logPath;
         config.write(m_ini, true);
     }
 
@@ -40,6 +41,8 @@ void ModLoader::StartLogger()
     m_logger->Log("Load delay: %i", m_loadDelay);
     m_logger->Log("Show terminal: %i", m_showTerminal);
     m_logger->Log("Mod folder: %s", m_modFolder.c_str());
+    m_logger->Log("Log path: %s", m_logPath.c_str());
+    m_logger->Log("Config path: %s", m_configPath.c_str());
 }
 
 std::vector<std::pair<int64_t, std::string>> ModLoader::FindModsAndReadLoadOrders()
@@ -57,19 +60,19 @@ std::vector<std::pair<int64_t, std::string>> ModLoader::FindModsAndReadLoadOrder
         {
             fs::path extension = file.path().extension();
             fs::path path = file.path().parent_path();
-            if (extension == ".dll" && path == m_modFolder)
+            std::string modName = file.path().stem().string();
+            if (extension == ".dll" && !m_ini["disabled_mods"].has(modName))
             {
-                std::string modName = file.path().stem().string();
                 int64_t loadOrder = automaticLoadOrder;
 
-                std::ifstream loadOrderFile(m_modFolder + "\\" + modName + "\\load.txt", std::ios::binary);
-                if (loadOrderFile.is_open())
-                {
-                    std::string line = "";
-                    getline(loadOrderFile, line);
-                    std::stringstream stringStream(line);
-                    stringStream >> loadOrder;
-                }
+                // std::ifstream loadOrderFile(m_modFolder + "\\" + modName + "\\load.txt", std::ios::binary);
+                // if (loadOrderFile.is_open())
+                // {
+                //     std::string line = "";
+                //     getline(loadOrderFile, line);
+                //     std::stringstream stringStream(line);
+                //     stringStream >> loadOrder;
+                // }
 
                 std::string overrideLoadOrder = m_ini["loadorder"].get(modName);
                 if (overrideLoadOrder == "")
@@ -82,7 +85,8 @@ std::vector<std::pair<int64_t, std::string>> ModLoader::FindModsAndReadLoadOrder
                 }
 
                 m_logger->Log("%s = %i", modName.c_str(), loadOrder);
-                dllMods.push_back(std::make_pair(loadOrder, modName + ".dll"));
+                // dllMods.push_back(std::make_pair(loadOrder, modName + ".dll"));
+                dllMods.push_back(std::make_pair(loadOrder, file.path().string()));
             }
         }
     }
@@ -124,7 +128,8 @@ void ModLoader::LoadDllMods()
         }
 
         m_logger->Log("Loading %s...", dllName.c_str());
-        if (LoadLibraryA(std::string(m_modFolder + "\\" + dllName).c_str()))
+        // if (LoadLibraryA(std::string(m_modFolder + "\\" + dllName).c_str()))
+        if (LoadLibraryA(std::string(dllName).c_str()))
         {
             bool nextModHasSameLoadOrder = i != dllMods.size() - 1 && dllMods[i + 1].first == loadOrder;
             if (nextModHasSameLoadOrder == false)

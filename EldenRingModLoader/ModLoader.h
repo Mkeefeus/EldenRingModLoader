@@ -19,10 +19,10 @@ public:
 	void LoadMods();
 
 private:
-	// Logger m_logger{ "Mod Loader" };
-	std::unique_ptr<Logger> m_logger; // Changed to a smart pointer
-	std::string m_modFolder = ".\\mods";
-	std::string m_logPath = "mod_loader_log.txt";
+	std::string m_configPath = getenv("INI_PATH") ? getenv("INI_PATH") : "mod_loader_config.ini";
+	std::string m_modFolder = getenv("MODS_PATH") ? getenv("MODS_PATH") : ".\\mods";
+	std::string m_logPath = getenv("LOG_PATH") ? getenv("LOG_PATH") : "mod_loader_log.txt";
+	std::unique_ptr<Logger> m_logger;
 	DWORD m_loadDelay = 5000;
 	bool m_showTerminal = false;
 	INIStructure m_ini;
